@@ -1,11 +1,17 @@
 /**
 * This is the main twitchBot program file.
 */
+#define USING_360_SERVOS
+
 #include "simpletools.h"
 #include "fdserial.h"
 #include "abdrive360.h"
 #include "ping.h"
-#include "servo.h"
+#ifdef USING_360_SERVOS
+  #include "servo360.h"
+#else
+  #include "servo.h"
+#endif  
 #include "ws2812.h"
 
 //#define STRING //Defines whether its String Fury or not
@@ -47,6 +53,7 @@ uint32_t eye_color = 0xFFFFFF;
   
 
 fdserial *term; //enables full-duplex serilization of the terminal (In otherwise, 2 way signals between this computer and the robot)
+//int global vars
 int ticks = 12; //each tick makes the wheel move by 3.25mm, 64 ticks is a full wheel rotation (or 208mm)
 int turnTick = 6; //Turning is at half the normal rate
 int maxSpeed = 128; //the maximum amount of ticks the robot can travel with the "drive_goto" function
@@ -57,6 +64,21 @@ int gripDegree = 0; //Angle of the servo that controls the gripper
 int gripState = -1;
 int commandget = 0;
 
+int ledmask[18];
+int tmask[18];
+int nmask0[18] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; // all on
+int nmask1[18] = {1,1,1,1,0,1,1,1,1,1,1,1,1,0,1,1,1,1}; // o.o
+int nmask2[18] = {0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0}; // -.-
+int nmask3[18] = {0,1,0,1,0,1,0,0,0,0,1,0,1,0,1,0,0,0}; // v.v
+int nmask4[18] = {0,0,0,1,0,1,0,1,0,0,0,0,1,0,1,0,1,0}; // ^.^
+int nmask5[18] = {1,0,1,0,1,0,1,0,1,1,0,1,0,1,0,1,0,1}; // x.x
+int nmask6[18] = {0,1,1,1,1,0,1,0,0,1,1,0,0,1,1,0,0,1}; // \./
+int nmask7[18] = {0,1,0,0,1,0,1,1,1,0,1,0,0,1,0,1,1,1}; // T.T
+int nmask8[18] = {1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,0,1}; // U.U
+int nmask9[18] = {1,0,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1}; // n.n
+uint32_t cop1[18] = {0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF};
+uint32_t cop2[18] = {0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0x0000FF ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000 ,0xFF0000};
+uint32_t lrn[18] = {0xA652AF ,0x000000 ,0x5F79FF ,0xF16B74 ,0x000000 ,0x21BCE5 ,0xF9AA67 ,0xF3EB48 ,0x97E062 ,0xA652AF ,0x000000 ,0x5F79FF ,0xF16B74 ,0x000000 ,0x21BCE5 ,0xF9AA67 ,0xF3EB48 ,0x97E062};
 volatile int current_leftspd = 0;
 volatile int current_rightspd = 0;
 volatile int motor_flag = 0;
@@ -70,14 +92,14 @@ int defaultTurnSpeed = 15;
 
 int pingDistance;
 
-//int verbose = 1;
+int verbose = 1;
 
 
 int main()
 {
   
    //variables for adjusting the encoded servos:
-   setKpMin(6);
+   //setKpMin(6);
    //setKpDistDen(8);
   // setKilncrement(1);
 //   setScaleXferFunct(200);
@@ -94,15 +116,17 @@ int main()
     if (ws2812b_init(&driver) < 0)
        return 1;
        pause(500);
+       set_neopixel_group(0xFFFFFF);
+         memcpy(tmask, nmask2, sizeof(nmask2));
    eyes_blink();
    #ifdef STRING
    servo_angle(17,can_position);
-   servo_angle(16,0);
+   servo_angle(1,0);
    #endif    
 
 	char c;
 
-	//servo_angle(16, gripDegree); //Orient gripper to half open on start
+	//servo_angle(1, gripDegree); //Orient gripper to half open on start
 	
  //pause(3000);
   
@@ -171,6 +195,80 @@ int main()
 						decrease_brightness();
                dprint(term,"brightness decreased");
 					}
+          	if (strcmp(inputString, "ms0") == 0) {
+						  memcpy(ledmask, nmask0, sizeof(nmask0));
+               refresh_eyes();
+               dprint(term,"mask 0");
+					}
+            if (strcmp(inputString, "ms1") == 0) {
+						  memcpy(ledmask, nmask1, sizeof(nmask1));
+               refresh_eyes();
+               dprint(term,"mask 1");
+					}
+            if (strcmp(inputString, "ms2") == 0) {
+						  memcpy(tmask, nmask2, sizeof(nmask2));
+               eyes_blink();
+               dprint(term,"mask 2");
+					}
+            if (strcmp(inputString, "ms3") == 0) {
+						  memcpy(ledmask, nmask3, sizeof(nmask3));
+               refresh_eyes();
+               dprint(term,"mask 3");
+					}
+            if (strcmp(inputString, "ms4") == 0) {
+						  memcpy(ledmask, nmask4, sizeof(nmask4));
+               refresh_eyes();
+               dprint(term,"mask 4");
+					}
+            if (strcmp(inputString, "ms5") == 0) {
+						  memcpy(ledmask, nmask5, sizeof(nmask5));
+               refresh_eyes();
+               dprint(term,"mask 5");
+					}
+            if (strcmp(inputString, "ms6") == 0) {
+						  memcpy(ledmask, nmask6, sizeof(nmask6));
+               set_neopixel_group(0xFF0000);
+               refresh_eyes();
+               dprint(term,"mask 6");
+					}
+            if (strcmp(inputString, "ms7") == 0) {
+						  memcpy(ledmask, nmask7, sizeof(nmask7));
+               refresh_eyes();
+               dprint(term,"mask 7");
+					}
+            if (strcmp(inputString, "ms8") == 0) {
+						  memcpy(ledmask, nmask8, sizeof(nmask8));
+               refresh_eyes();
+               dprint(term,"mask 8");
+					}
+            if (strcmp(inputString, "ms9") == 0) {
+						  memcpy(ledmask, nmask9, sizeof(nmask9));
+               refresh_eyes();
+               dprint(term,"mask 9");
+					}
+            if (strcmp(inputString, "lrn") == 0) {
+						  memcpy(ledmask, nmask9, sizeof(nmask9));
+                memcpy(ledColors, lrn, sizeof(lrn));
+               refresh_eyes();
+               dprint(term,"mask 9");
+					}
+            if (strcmp(inputString, "cop") == 0) {
+                memcpy(ledmask, nmask0, sizeof(nmask0));
+                int a=0;
+                for (a=0; a <= 5; ++a)
+                {
+						  memcpy(ledColors, cop1, sizeof(cop1));
+               refresh_eyes();
+                pause(400);
+                memcpy(ledColors, cop2, sizeof(cop2));
+                refresh_eyes();
+                pause(400);
+                }                
+                set_neopixel_group(0xFFFFFF);
+                memcpy(ledmask, nmask1, sizeof(nmask1));
+                refresh_eyes();
+               dprint(term,"cop");
+					}
      #ifdef STRING
      		  if (strcmp(inputString, "u") == 0) {
              can_position += 50;
@@ -178,7 +276,7 @@ int main()
              {can_position = 900;
              
 					}
-             servo_angle(17,can_position);
+             servo_angle(2,can_position);
             }     
      
           	if (strcmp(inputString, "d") == 0) {
@@ -186,7 +284,7 @@ int main()
              if (can_position <= 0)
              {can_position = 0;
 					}
-            servo_angle(17,can_position);
+            servo_angle(2,can_position);
             }    
              
             if (strcmp(inputString, "s") == 0) {
@@ -196,7 +294,7 @@ int main()
                fire_flag = 1;
                firing_timer = CNT+firing_interval;
                firing_duration_timer=CNT;
-               servo_angle(16,500);
+               servo_angle(1,500);
               }               
               
             }              
@@ -331,6 +429,8 @@ void refresh_eyes()
         
         for (i2 = 0; i2 < LED_COUNT; ++i2)
         {
+          if (ledmask[i2] == 1)
+          {
           uint32_t red = (ledColors[i2]>>16) & 0xFF;
           red = red*brightness/255;
           uint32_t green = (ledColors[i2]>>8) & 0xFF;
@@ -338,7 +438,12 @@ void refresh_eyes()
           uint32_t blue = (ledColors[i2]) & 0xFF;
           blue = blue*brightness/255;
           uint32_t scaled_color = (red << 16)+(green << 8)+(blue);
-          dim_array[i2] = scaled_color;      
+          dim_array[i2] = scaled_color;   
+          }
+          else
+          {
+          dim_array[i2] = 0x000000;
+          }                         
         }   
         
         ws2812_refresh(&driver, LED_PIN, dim_array, LED_COUNT);
@@ -378,37 +483,14 @@ void set_neopixel(uint8_t pixel_num, uint32_t color)
 
 void eyes_blink()
 {
-        int doot;
-        doot=0;
-        while(doot<LED_COUNT)
-        {
-        if(doot==4||doot==13)
-        set_neopixel(doot,0x000000);  
-        else
-        set_neopixel(doot,eye_color);         
-        doot+=1;
-        pause(1);
-        }     
-        doot =0;   
-        pause(400);
-        while(doot<LED_COUNT)
-        {
-        if((doot>=3 && doot<=5)|| (doot>=12 && doot<=14))
-        set_neopixel(doot,eye_color);  
-        else
-        set_neopixel(doot,0x000000);         
-        doot+=1;
+  memcpy(ledmask, nmask1, sizeof(nmask1));
+  refresh_eyes();
+  pause(500);
+  memcpy(ledmask, tmask, sizeof(tmask));
+  refresh_eyes();
+  pause(500);
+  memcpy(ledmask, nmask1, sizeof(nmask1));
+  refresh_eyes(); 
            pause(1);
-        }     
-        doot =0; 
-        pause(400);
-                while(doot<LED_COUNT)
-        {
-        if(doot==4||doot==13)
-        set_neopixel(doot,0x000000);  
-        else
-        set_neopixel(doot,eye_color);         
-        doot+=1;
-           pause(1);
-                   }
+                   
 }  
